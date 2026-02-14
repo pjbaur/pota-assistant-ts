@@ -1,4 +1,13 @@
-// Sync command - synchronize data from external sources
+/**
+ * Sync command - synchronize data from external sources.
+ *
+ * Provides commands to download and update local data from:
+ * - POTA.app API (park database)
+ *
+ * Data is cached locally for offline access.
+ *
+ * @module commands/sync-command
+ */
 
 import { Command } from 'commander';
 import type { AppConfig } from '../types/index.js';
@@ -8,6 +17,24 @@ import { getErrorSuggestions } from '../utils/index.js';
 import * as parkService from '../services/park-service.js';
 import * as parkRepository from '../data/repositories/park-repository.js';
 
+/**
+ * Registers the sync command and its subcommands with the CLI program.
+ *
+ * Subcommands:
+ * - `sync parks`: Download park data from POTA.app
+ * - `sync all`: Sync all data sources
+ *
+ * @param program - The Commander program instance
+ * @param _config - Application configuration (unused in this command)
+ * @param _logger - Logger instance (unused in this command)
+ *
+ * @example
+ * ```bash
+ * pota sync parks --region US
+ * pota sync parks --force
+ * pota sync all
+ * ```
+ */
 export function registerSyncCommand(
   program: Command,
   _config: AppConfig,

@@ -1,11 +1,25 @@
-// Park repository - handles all park-related database operations
+/**
+ * Park repository - handles all park-related database operations.
+ *
+ * Provides data access layer for park entities including:
+ * - CRUD operations for parks
+ * - Search functionality with filtering
+ * - Batch operations for synchronization
+ * - Sync status tracking
+ *
+ * @module data/repositories/park-repository
+ */
 
 import type Database from 'better-sqlite3';
 import { getDatabase } from '../database.js';
 import type { Park, ParkSearchResult, Result } from '../../types/index.js';
 import { AppError } from '../../types/index.js';
 
-// Input type for upsert operations
+/**
+ * Input type for park upsert operations.
+ *
+ * Contains all fields that can be set when creating or updating a park.
+ */
 export interface ParkUpsertInput {
   reference: string;
   name: string;
@@ -21,14 +35,24 @@ export interface ParkUpsertInput {
   metadata?: string | null;
 }
 
-// Search options
+/**
+ * Options for park search operations.
+ */
 export interface ParkSearchOptions {
   state?: string;
   limit?: number;
 }
 
 /**
- * Convert a database row to a Park object
+ * Converts a database row to a Park object.
+ *
+ * Handles type conversion and null coalescing for fields that
+ * may be null in the database.
+ *
+ * @param row - Raw database row
+ * @returns Typed Park object
+ *
+ * @internal
  */
 function rowToPark(row: Record<string, unknown>): Park {
   return {
@@ -49,7 +73,16 @@ function rowToPark(row: Record<string, unknown>): Park {
 }
 
 /**
- * Get all parks with pagination
+ * Gets all parks with pagination.
+ *
+ * @param limit - Maximum number of parks to return (default: 50)
+ * @param offset - Number of parks to skip (default: 0)
+ * @returns A Result containing an array of parks
+ *
+ * @example
+ * ```typescript
+ * const result = findAll(20, 0); // First 20 parks
+ * ```
  */
 export function findAll(limit = 50, offset = 0): Result<Park[]> {
   const dbResult = getDatabase();
@@ -81,7 +114,20 @@ export function findAll(limit = 50, offset = 0): Result<Park[]> {
 }
 
 /**
- * Find a park by its POTA reference (e.g., "K-0039")
+ * Finds a park by its POTA reference.
+ *
+ * Reference is normalized to uppercase for the lookup.
+ *
+ * @param reference - The park reference ID (e.g., "K-0039")
+ * @returns A Result containing the Park if found, null if not found
+ *
+ * @example
+ * ```typescript
+ * const result = findByReference('k-0039');
+ * if (result.success && result.data) {
+ *   console.log(result.data.name); // "Yellowstone National Park"
+ * }
+ * ```
  */
 export function findByReference(reference: string): Result<Park | null> {
   const dbResult = getDatabase();
@@ -112,7 +158,24 @@ export function findByReference(reference: string): Result<Park | null> {
 }
 
 /**
- * Search parks by name, reference, or location
+ * Searches parks by name, reference, or location.
+ *
+ * Performs a case-insensitive LIKE search against both the
+ * reference and name columns. Optionally filters by state.
+ *
+ * @param query - Search string to match
+ * @param options - Search options
+ * @param options.state - Filter by US state code
+ * @param options.limit - Maximum results to return (default: 50)
+ * @returns A Result containing search results with parks and total count
+ *
+ * @example
+ * ```typescript
+ * const result = search('yellowstone', { state: 'WY', limit: 10 });
+ * if (result.success) {
+ *   console.log(`Found ${result.data.total} matching parks`);
+ * }
+ * ```
  */
 export function search(
   query: string,
@@ -179,7 +242,25 @@ export function search(
 }
 
 /**
- * Insert or update a park
+ * Inserts or updates a park in the database.
+ *
+ * Uses INSERT ... ON CONFLICT to atomically create or update.
+ * The syncedAt timestamp is automatically set to the current time.
+ *
+ * @param parkData - Park data to insert or update
+ * @returns A Result containing the upserted Park
+ *
+ * @example
+ * ```typescript
+ * const result = upsert({
+ *   reference: 'K-0039',
+ *   name: 'Yellowstone National Park',
+ *   latitude: 44.4280,
+ *   longitude: -110.5885,
+ *   gridSquare: 'DN44xk',
+ *   isActive: true
+ * });
+ * ```
  */
 export function upsert(parkData: ParkUpsertInput): Result<Park> {
   const dbResult = getDatabase();
@@ -244,7 +325,23 @@ export function upsert(parkData: ParkUpsertInput): Result<Park> {
 }
 
 /**
- * Batch insert or update multiple parks
+ * Batch inserts or updates multiple parks.
+ *
+ * Uses a transaction to efficiently process large numbers of parks.
+ * More efficient than individual upsert calls for bulk operations.
+ *
+ * @param parks - Array of park data to insert or update
+ * @returns A Result containing the count of processed parks
+ *
+ * @example
+ * ```typescript
+ * const parks = [
+ *   { reference: 'K-0001', name: 'Park 1', ... },
+ *   { reference: 'K-0002', name: 'Park 2', ... }
+ * ];
+ * const result = upsertMany(parks);
+ * console.log(`Processed ${result.data.count} parks`);
+ * ```
  */
 export function upsertMany(parks: ParkUpsertInput[]): Result<{ count: number }> {
   const dbResult = getDatabase();
@@ -313,7 +410,17 @@ export function upsertMany(parks: ParkUpsertInput[]): Result<{ count: number }> 
 }
 
 /**
- * Get total count of parks
+ * Gets the total count of parks in the database.
+ *
+ * @returns A Result containing the park count
+ *
+ * @example
+ * ```typescript
+ * const result = count();
+ * if (result.success) {
+ *   console.log(`${result.data} parks in database`);
+ * }
+ * ```
  */
 export function count(): Result<number> {
   const dbResult = getDatabase();
@@ -337,7 +444,21 @@ export function count(): Result<number> {
 }
 
 /**
- * Get the last sync timestamp
+ * Gets the timestamp of the most recent park data sync.
+ *
+ * Used to determine if park data should be considered stale
+ * and needs to be refreshed from the API.
+ *
+ * @returns A Result containing the last sync Date or null if never synced
+ *
+ * @example
+ * ```typescript
+ * const result = getLastSyncTime();
+ * if (result.success && result.data) {
+ *   const daysSince = (Date.now() - result.data.getTime()) / (1000 * 60 * 60 * 24);
+ *   console.log(`Last sync: ${Math.floor(daysSince)} days ago`);
+ * }
+ * ```
  */
 export function getLastSyncTime(): Result<Date | null> {
   const dbResult = getDatabase();

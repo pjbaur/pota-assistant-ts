@@ -1,4 +1,23 @@
-// Configuration loader - handles file-based config and env var overrides
+/**
+ * Configuration loader - handles file-based config and environment variable overrides.
+ *
+ * Configuration is loaded in this order (later overrides earlier):
+ * 1. Default values from schema.ts
+ * 2. User config file (managed by conf package)
+ * 3. Environment variables (POTA_*)
+ *
+ * Environment variables:
+ * - POTA_CALLSIGN: Operator callsign
+ * - POTA_GRID_SQUARE: Maidenhead grid locator
+ * - POTA_HOME_LAT / POTA_HOME_LON: Home coordinates
+ * - POTA_TIMEZONE: Timezone string
+ * - POTA_UNITS: 'imperial' or 'metric'
+ * - POTA_NO_COLOR: Disable colored output
+ * - POTA_LOG_LEVEL: Log level (debug, info, warn, error)
+ * - POTA_DATA_DIR: Custom data directory
+ *
+ * @module config/loader
+ */
 
 import Conf from 'conf';
 import type { AppConfig } from '../types/index.js';
@@ -9,7 +28,9 @@ import {
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-// Config type for Conf storage
+/**
+ * Type definition for the conf storage structure.
+ */
 type ConfigStore = Conf<{
   user: AppConfig['user'];
   display: AppConfig['display'];
@@ -18,9 +39,18 @@ type ConfigStore = Conf<{
   data: AppConfig['data'];
 }>;
 
-// Config storage using conf package
+/** Config storage singleton */
 let configStore: ConfigStore | null = null;
 
+/**
+ * Gets or creates the config store singleton.
+ *
+ * Creates the data directory if it doesn't exist.
+ *
+ * @returns The Conf store instance
+ *
+ * @internal
+ */
 function getConfigStore(): ConfigStore {
   if (!configStore) {
     // Ensure data directory exists
@@ -45,7 +75,21 @@ function getConfigStore(): ConfigStore {
 }
 
 /**
- * Load configuration with defaults and env var overrides
+ * Loads configuration with defaults and environment variable overrides.
+ *
+ * Merges configuration in order:
+ * 1. Default values
+ * 2. Stored user preferences
+ * 3. Environment variable overrides
+ *
+ * @returns The complete AppConfig object
+ *
+ * @example
+ * ```typescript
+ * const config = loadConfig();
+ * console.log(`Callsign: ${config.user.callsign}`);
+ * console.log(`Database: ${config.data.databasePath}`);
+ * ```
  */
 export function loadConfig(): AppConfig {
   const store = getConfigStore();
@@ -71,7 +115,15 @@ export function loadConfig(): AppConfig {
 }
 
 /**
- * Apply environment variable overrides to config
+ * Applies environment variable overrides to configuration.
+ *
+ * Processes POTA_* environment variables and applies them
+ * to the appropriate config sections.
+ *
+ * @param config - Base configuration to override
+ * @returns Configuration with env var overrides applied
+ *
+ * @internal
  */
 function applyEnvOverrides(config: AppConfig): AppConfig {
   const envOverrides: Partial<AppConfig> = {};
@@ -140,7 +192,19 @@ function applyEnvOverrides(config: AppConfig): AppConfig {
 }
 
 /**
- * Save configuration value
+ * Sets a configuration value.
+ *
+ * Supports dot-notation keys for nested values (e.g., 'user.callsign').
+ *
+ * @param key - Configuration key (e.g., 'user.callsign', 'display.color')
+ * @param value - Value to set
+ * @throws Error if the key format is invalid
+ *
+ * @example
+ * ```typescript
+ * setConfigValue('user.callsign', 'W1AW');
+ * setConfigValue('display.color', false);
+ * ```
  */
 export function setConfigValue(key: string, value: string | number | boolean): void {
   const store = getConfigStore();
@@ -159,7 +223,18 @@ export function setConfigValue(key: string, value: string | number | boolean): v
 }
 
 /**
- * Get configuration value
+ * Gets a configuration value.
+ *
+ * Supports dot-notation keys for nested values.
+ *
+ * @param key - Configuration key (e.g., 'user.callsign')
+ * @returns The configuration value, or undefined if not found
+ *
+ * @example
+ * ```typescript
+ * const callsign = getConfigValue('user.callsign');
+ * console.log(callsign); // 'W1AW'
+ * ```
  */
 export function getConfigValue(key: string): unknown {
   const store = getConfigStore();
@@ -177,7 +252,18 @@ export function getConfigValue(key: string): unknown {
 }
 
 /**
- * Check if this is first run (no config set)
+ * Checks if this is the first run (no user configuration set).
+ *
+ * Determines first-run status by checking if a callsign has been configured.
+ *
+ * @returns True if no user configuration exists
+ *
+ * @example
+ * ```typescript
+ * if (isFirstRun()) {
+ *   // Show welcome/setup wizard
+ * }
+ * ```
  */
 export function isFirstRun(): boolean {
   const store = getConfigStore();
@@ -186,7 +272,28 @@ export function isFirstRun(): boolean {
 }
 
 /**
- * Initialize config with user profile
+ * Initializes configuration with user profile data.
+ *
+ * Called during first-run setup to store the user's information.
+ * Also creates necessary data directories.
+ *
+ * @param profile - User profile data
+ * @param profile.callsign - Amateur radio callsign (required)
+ * @param profile.gridSquare - Maidenhead grid locator
+ * @param profile.homeLatitude - Home latitude coordinate
+ * @param profile.homeLongitude - Home longitude coordinate
+ * @param profile.units - Unit system ('imperial' or 'metric')
+ *
+ * @example
+ * ```typescript
+ * initConfig({
+ *   callsign: 'W1AW',
+ *   gridSquare: 'FN31pr',
+ *   homeLatitude: 41.7148,
+ *   homeLongitude: -72.7272,
+ *   units: 'imperial'
+ * });
+ * ```
  */
 export function initConfig(profile: {
   callsign: string;
@@ -216,7 +323,16 @@ export function initConfig(profile: {
 }
 
 /**
- * Get config file path
+ * Gets the path to the configuration file.
+ *
+ * Useful for displaying to users where their config is stored.
+ *
+ * @returns Absolute path to the config file
+ *
+ * @example
+ * ```typescript
+ * console.log(`Config file: ${getConfigPath()}`);
+ * ```
  */
 export function getConfigPath(): string {
   const store = getConfigStore();

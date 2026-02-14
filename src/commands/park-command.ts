@@ -1,4 +1,13 @@
-// Park command - search and show parks
+/**
+ * Park command - search and display park information.
+ *
+ * Provides commands to search for and view POTA parks:
+ * - Search by name or reference
+ * - Display detailed park information
+ * - Filter by state
+ *
+ * @module commands/park-command
+ */
 
 import { Command } from 'commander';
 import type { AppConfig } from '../types/index.js';
@@ -9,6 +18,24 @@ import { error, warning } from '../ui/status.js';
 import { formatParkCard, formatParkList } from '../ui/formatters.js';
 import * as parkService from '../services/park-service.js';
 
+/**
+ * Registers the park command and its subcommands with the CLI program.
+ *
+ * Subcommands:
+ * - `park search <query>`: Search parks by name or reference
+ * - `park show <reference>`: Display detailed park information
+ *
+ * @param program - The Commander program instance
+ * @param _config - Application configuration (unused in this command)
+ * @param _logger - Logger instance (unused in this command)
+ *
+ * @example
+ * ```bash
+ * pota park search yellowstone
+ * pota park search "state park" --state WA --limit 10
+ * pota park show K-0039
+ * ```
+ */
 export function registerParkCommand(
   program: Command,
   _config: AppConfig,

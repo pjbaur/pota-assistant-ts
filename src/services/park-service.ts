@@ -1,4 +1,14 @@
-// Park service - coordinates between POTA API client and park repository
+/**
+ * Park service - coordinates between POTA API client and park repository.
+ *
+ * This service layer handles:
+ * - Park data synchronization from the POTA API
+ * - Local database caching for offline access
+ * - Park search and lookup operations
+ * - Stale data detection and warnings
+ *
+ * @module services/park-service
+ */
 
 import * as parkRepository from '../data/repositories/park-repository.js';
 import {
@@ -10,24 +20,40 @@ import { calculateGridSquare } from '../utils/grid-square.js';
 import type { Park, ParkSearchResult, Result } from '../types/index.js';
 import { AppError } from '../types/index.js';
 
-// Park data sync options
+/**
+ * Options for park data synchronization.
+ */
 export interface SyncOptions {
   region?: string; // Filter by region/entity
   force?: boolean; // Force sync even if recently synced
 }
 
-// Sync result
+/**
+ * Result of a park data synchronization operation.
+ */
 export interface SyncResult {
   count: number;
   staleWarning?: string;
 }
 
-// Constants
+/** Number of days before park data is considered stale */
 const PARK_DATA_STALE_DAYS = 30;
+
+/** Milliseconds in a day, used for staleness calculations */
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Transform API park data to repository input format
+ * Transforms raw API park data to repository input format.
+ *
+ * Handles data normalization including:
+ * - Grid square calculation if not provided
+ * - POTA URL generation
+ * - Null coalescing for optional fields
+ *
+ * @param apiData - Raw park data from the POTA API
+ * @returns Normalized data ready for database insertion
+ *
+ * @internal
  */
 function transformApiDataToRepository(
   apiData: ParkApiData
@@ -55,7 +81,20 @@ function transformApiDataToRepository(
 }
 
 /**
- * Check if park data is stale (> 30 days old)
+ * Checks if park data is stale and returns a warning message.
+ *
+ * Park data older than 30 days is considered stale and should be
+ * refreshed to ensure accuracy of park information.
+ *
+ * @returns A warning string if data is stale or missing, null otherwise
+ *
+ * @example
+ * ```typescript
+ * const warning = getStaleWarning();
+ * if (warning) {
+ *   console.warn(warning); // "Park data is 45 days old. Run 'pota sync'..."
+ * }
+ * ```
  */
 export function getStaleWarning(): string | null {
   const lastSyncResult = parkRepository.getLastSyncTime();
@@ -82,7 +121,25 @@ export function getStaleWarning(): string | null {
 }
 
 /**
- * Search parks by query with optional filters
+ * Searches parks by query with optional filters.
+ *
+ * Performs a full-text search against park names and reference IDs.
+ * Results include a stale warning if park data hasn't been synced recently.
+ *
+ * @param query - Search string to match against park name or reference
+ * @param options - Search options
+ * @param options.state - Filter by US state code (e.g., "WA", "CA")
+ * @param options.limit - Maximum number of results to return (default: 50)
+ * @returns A Result containing search results with parks and total count
+ *
+ * @example
+ * ```typescript
+ * const result = await searchParks('yellowstone', { state: 'WY', limit: 10 });
+ * if (result.success) {
+ *   console.log(`Found ${result.data.total} parks`);
+ *   result.data.parks.forEach(park => console.log(park.name));
+ * }
+ * ```
  */
 export async function searchParks(
   query: string,
@@ -108,8 +165,23 @@ export async function searchParks(
 }
 
 /**
- * Get a park by its POTA reference
- * First checks local database, then falls back to API
+ * Gets a park by its POTA reference.
+ *
+ * First checks the local database for cached data. If not found,
+ * fetches from the POTA API and caches the result for future use.
+ * This enables offline access to previously viewed parks.
+ *
+ * @param ref - The park reference ID (e.g., "K-0039")
+ * @returns A Result containing the Park object, null if not found, or an error
+ *
+ * @example
+ * ```typescript
+ * const result = await getParkByReference('K-0039');
+ * if (result.success && result.data) {
+ *   console.log(`Park: ${result.data.name}`);
+ *   console.log(`Location: ${result.data.latitude}, ${result.data.longitude}`);
+ * }
+ * ```
  */
 export async function getParkByReference(
   ref: string
@@ -159,8 +231,28 @@ export async function getParkByReference(
 }
 
 /**
- * Sync park data from POTA API
- * Downloads all parks and stores them in the local database
+ * Synchronizes park data from the POTA API.
+ *
+ * Downloads all parks (or parks for a specific region) and stores them
+ * in the local database for offline access. Skips sync if data was
+ * refreshed within the last hour unless force is true.
+ *
+ * @param options - Sync options
+ * @param options.region - Filter by region/entity (e.g., "US", "CA", "EU")
+ * @param options.force - Force sync even if recently synced
+ * @returns A Result containing the count of synced parks and optional warnings
+ *
+ * @example
+ * ```typescript
+ * // Sync all US parks
+ * const result = await syncParks({ region: 'US' });
+ * if (result.success) {
+ *   console.log(`Synced ${result.data.count} parks`);
+ * }
+ *
+ * // Force full resync
+ * const forceResult = await syncParks({ force: true });
+ * ```
  */
 export async function syncParks(options: SyncOptions = {}): Promise<Result<SyncResult>> {
   // Check if we should skip sync
@@ -237,14 +329,36 @@ export async function syncParks(options: SyncOptions = {}): Promise<Result<SyncR
 }
 
 /**
- * Get count of parks in local database
+ * Gets the count of parks in the local database.
+ *
+ * @returns A Result containing the park count or an error
+ *
+ * @example
+ * ```typescript
+ * const result = getParkCount();
+ * if (result.success) {
+ *   console.log(`${result.data} parks in database`);
+ * }
+ * ```
  */
 export function getParkCount(): Result<number> {
   return parkRepository.count();
 }
 
 /**
- * Check if local database has parks
+ * Checks if the local database has any parks.
+ *
+ * Useful for determining if an initial sync is needed before
+ * the application can function offline.
+ *
+ * @returns True if at least one park exists in the database
+ *
+ * @example
+ * ```typescript
+ * if (!hasParks()) {
+ *   console.log('Run "pota sync" to download park data');
+ * }
+ * ```
  */
 export function hasParks(): boolean {
   const countResult = parkRepository.count();

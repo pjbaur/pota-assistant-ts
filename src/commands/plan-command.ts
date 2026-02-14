@@ -1,4 +1,17 @@
-// Plan command - manage activation plans
+/**
+ * Plan command - manage POTA activation plans.
+ *
+ * Provides commands to create, edit, view, and export activation plans:
+ * - Create new plans with park, date, and equipment selection
+ * - List and filter existing plans
+ * - Update plan details and status
+ * - Export plans to various formats (Markdown, text, JSON)
+ *
+ * Plans include cached weather forecasts and band recommendations
+ * for offline reference during activations.
+ *
+ * @module commands/plan-command
+ */
 
 import { Command } from 'commander';
 import type { AppConfig } from '../types/index.js';
@@ -15,6 +28,28 @@ import { isValidPresetId, getPresetOptions } from '../services/equipment-presets
 import { exportPlan } from '../services/export-service.js';
 import { promptSelect, promptConfirm } from '../ui/prompts.js';
 
+/**
+ * Registers the plan command and its subcommands with the CLI program.
+ *
+ * Subcommands:
+ * - `plan create <parkRef>`: Create a new activation plan
+ * - `plan list`: List all plans with optional filters
+ * - `plan show <id>`: Display detailed plan information
+ * - `plan edit <id>`: Update an existing plan
+ * - `plan delete <id>`: Remove a plan
+ * - `plan export <id>`: Export a plan to file
+ *
+ * @param program - The Commander program instance
+ * @param config - Application configuration (used for export defaults)
+ * @param _logger - Logger instance (unused in this command)
+ *
+ * @example
+ * ```bash
+ * pota plan create K-0039 --date 2024-07-15 --preset qrp-portable
+ * pota plan list --upcoming
+ * pota plan export 1 --format markdown --output plan.md
+ * ```
+ */
 export function registerPlanCommand(
   program: Command,
   config: AppConfig,

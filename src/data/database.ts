@@ -1,4 +1,12 @@
-// Database connection and migration runner
+/**
+ * Database connection and migration runner.
+ *
+ * Manages the SQLite database connection using better-sqlite3 and
+ * handles schema migrations. The database is stored locally and
+ * supports offline operation after initial setup.
+ *
+ * @module data/database
+ */
 
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
@@ -7,19 +15,41 @@ import { loadConfig } from '../config/index.js';
 import type { Result } from '../types/index.js';
 import { AppError } from '../types/index.js';
 
-// Migration type definition
+/**
+ * Represents a database migration.
+ *
+ * Each migration has a unique ID, descriptive name, and an `up` function
+ * that applies the schema changes.
+ */
 export interface Migration {
   id: string;
   name: string;
   up: (db: Database.Database) => void;
 }
 
-// Database singleton
+/** Database singleton instance */
 let db: Database.Database | null = null;
 
 /**
- * Get or create the database connection
- * Initializes the database and runs migrations on first call
+ * Gets or creates the database connection.
+ *
+ * On first call:
+ * 1. Creates the database file if it doesn't exist
+ * 2. Enables WAL mode and foreign key constraints
+ * 3. Runs any pending migrations
+ *
+ * Subsequent calls return the existing connection.
+ *
+ * @returns A Result containing the Database instance or an error
+ *
+ * @example
+ * ```typescript
+ * const result = getDatabase();
+ * if (result.success) {
+ *   const db = result.data;
+ *   const rows = db.prepare('SELECT * FROM parks').all();
+ * }
+ * ```
  */
 export function getDatabase(): Result<Database.Database> {
   if (db) {
@@ -65,7 +95,16 @@ export function getDatabase(): Result<Database.Database> {
 }
 
 /**
- * Close the database connection
+ * Closes the database connection.
+ *
+ * Should be called when the application shuts down to ensure
+ * clean termination of the database connection.
+ *
+ * @example
+ * ```typescript
+ * // In application shutdown
+ * closeDatabase();
+ * ```
  */
 export function closeDatabase(): void {
   if (db) {
@@ -75,7 +114,20 @@ export function closeDatabase(): void {
 }
 
 /**
- * Run all pending migrations
+ * Runs all pending migrations.
+ *
+ * Migration process:
+ * 1. Creates the _migrations tracking table if needed
+ * 2. Queries already-applied migrations
+ * 3. Runs pending migrations in order by ID
+ * 4. Records each migration in the tracking table
+ *
+ * Migrations are run in a transaction to ensure atomicity.
+ *
+ * @param database - The database instance to migrate
+ * @returns A Result indicating success or failure
+ *
+ * @internal
  */
 function runMigrations(database: Database.Database): Result<void> {
   try {

@@ -1,10 +1,23 @@
-// Open-Meteo API client for weather forecasts
-// Free API - no authentication required
+/**
+ * Open-Meteo API client for weather forecasts.
+ *
+ * Provides functions to fetch weather forecast data from the Open-Meteo API.
+ * This is a free API that requires no authentication.
+ *
+ * @module api/weather-client
+ *
+ * @see https://open-meteo.com/en/docs
+ */
 
 import type { Result } from '../types/index.js';
 import { AppError } from '../types/index.js';
 
-// Open-Meteo API response types
+/**
+ * Daily weather data structure from Open-Meteo API.
+ *
+ * Contains arrays of weather metrics indexed by day. Each array index
+ * corresponds to the same day across all properties.
+ */
 export interface OpenMeteoDaily {
   time: string[];
   temperature_2m_max: number[];
@@ -16,17 +29,36 @@ export interface OpenMeteoDaily {
   sunset: string[];
 }
 
+/**
+ * Complete Open-Meteo API response structure.
+ *
+ * Contains the requested location coordinates and daily weather data
+ * for a 7-day forecast period.
+ */
 export interface OpenMeteoResponse {
   latitude: number;
   longitude: number;
   daily: OpenMeteoDaily;
 }
 
-// API configuration
+/** Base URL for the Open-Meteo forecast API */
 const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
-const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
-// Daily parameters to request from Open-Meteo
+/** Request timeout in milliseconds (30 seconds) */
+const REQUEST_TIMEOUT_MS = 30000;
+
+/**
+ * Daily weather parameters to request from Open-Meteo.
+ *
+ * These parameters are requested for each day in the forecast:
+ * - temperature_2m_max: Maximum daily temperature
+ * - temperature_2m_min: Minimum daily temperature
+ * - precipitation_probability_max: Maximum precipitation chance
+ * - windspeed_10m_max: Maximum wind speed at 10m
+ * - weathercode: WMO weather code
+ * - sunrise: Sunrise time
+ * - sunset: Sunset time
+ */
 const DAILY_PARAMS = [
   'temperature_2m_max',
   'temperature_2m_min',
@@ -38,7 +70,20 @@ const DAILY_PARAMS = [
 ].join(',');
 
 /**
- * Build the Open-Meteo API URL with query parameters
+ * Builds the Open-Meteo API URL with query parameters.
+ *
+ * Constructs a URL with all required parameters including:
+ * - Location coordinates
+ * - Requested daily parameters
+ * - Temperature unit (Fahrenheit)
+ * - Wind speed unit (mph)
+ * - Automatic timezone detection
+ *
+ * @param lat - Latitude coordinate (-90 to 90)
+ * @param lon - Longitude coordinate (-180 to 180)
+ * @returns Fully constructed API URL with query string
+ *
+ * @internal
  */
 function buildApiUrl(lat: number, lon: number): string {
   const params = new URLSearchParams({
@@ -55,7 +100,15 @@ function buildApiUrl(lat: number, lon: number): string {
 }
 
 /**
- * Create an AbortController with timeout
+ * Creates an AbortController with an automatic timeout.
+ *
+ * Returns both the controller and the timeout ID so the caller can
+ * clear the timeout if the request completes before it triggers.
+ *
+ * @param timeoutMs - Timeout duration in milliseconds
+ * @returns Object containing the AbortController and timeout ID
+ *
+ * @internal
  */
 function createTimeoutController(timeoutMs: number): {
   controller: AbortController;
@@ -67,11 +120,26 @@ function createTimeoutController(timeoutMs: number): {
 }
 
 /**
- * Fetch weather forecast from Open-Meteo API
+ * Fetches weather forecast from the Open-Meteo API.
  *
- * @param lat - Latitude coordinate
- * @param lon - Longitude coordinate
- * @returns Result containing OpenMeteoResponse or an error
+ * Retrieves a 7-day weather forecast for the specified coordinates.
+ * The response includes daily high/low temperatures, precipitation
+ * probability, wind speed, weather conditions, and sunrise/sunset times.
+ *
+ * @param lat - Latitude coordinate (-90 to 90)
+ * @param lon - Longitude coordinate (-180 to 180)
+ * @returns A Result containing the OpenMeteoResponse or an AppError
+ *
+ * @throws Never - all errors are returned in the Result type
+ *
+ * @example
+ * ```typescript
+ * const result = await fetchForecast(44.4280, -110.5885);
+ * if (result.success) {
+ *   const forecast = result.data;
+ *   console.log(`Days of data: ${forecast.daily.time.length}`);
+ * }
+ * ```
  */
 export async function fetchForecast(
   lat: number,

@@ -1,3 +1,18 @@
+/**
+ * Band service - provides HF band condition recommendations.
+ *
+ * This service provides band recommendations based on:
+ * - Time of day (grayline, peak propagation, etc.)
+ * - Season (summer/winter/equnox adjustments)
+ * - General HF propagation principles
+ *
+ * Note: These are general guidelines based on typical ionospheric
+ * conditions. Actual conditions vary based on solar activity,
+ * geomagnetic conditions, and local factors.
+ *
+ * @module services/band-service
+ */
+
 import type {
   BandConditions,
   BandRecommendation,
@@ -6,9 +21,20 @@ import type {
   TimeOfDay,
 } from '../types/index.js';
 
+/**
+ * Disclaimer displayed with band recommendations.
+ *
+ * Warns users that these are general guidelines and actual
+ * conditions may vary significantly.
+ */
 const DISCLAIMER =
   'Band conditions vary based on solar activity, ionospheric conditions, and local noise. These are general guidelines based on time of day and season.';
 
+/**
+ * Configuration for a single band recommendation.
+ *
+ * @internal
+ */
 interface BandConfig {
   band: string;
   mode: string;
@@ -16,12 +42,27 @@ interface BandConfig {
   notes: string;
 }
 
+/**
+ * Configuration for a time slot with its recommended bands.
+ *
+ * @internal
+ */
 interface TimeSlotConfig {
   name: string;
   bands: BandConfig[];
   defaultNote: string;
 }
 
+/**
+ * Band recommendations by time of day.
+ *
+ * Maps each time period to its recommended bands based on
+ * typical HF propagation patterns:
+ * - Morning: 40m/20m excellent for regional and DX
+ * - Midday: 20m/17m/15m for peak propagation
+ * - Evening: 20m/40m for grayline DX
+ * - Night: 80m/40m/160m for regional/local
+ */
 const TIME_SLOT_CONFIGS: Record<TimeOfDay, TimeSlotConfig> = {
   morning: {
     name: 'Morning (6-10am)',
@@ -61,9 +102,22 @@ const TIME_SLOT_CONFIGS: Record<TimeOfDay, TimeSlotConfig> = {
 };
 
 /**
- * Determines the time of day based on the hour (0-23).
- * @param hour - Hour of the day in 24-hour format
+ * Determines the time of day category based on the hour.
+ *
+ * Maps 24-hour time to four time periods:
+ * - Morning: 6-10 (06:00-09:59)
+ * - Midday: 10-16 (10:00-15:59)
+ * - Evening: 16-20 (16:00-19:59)
+ * - Night: 20-6 (20:00-05:59)
+ *
+ * @param hour - Hour of the day in 24-hour format (0-23)
  * @returns TimeOfDay category
+ *
+ * @example
+ * ```typescript
+ * const timeOfDay = getTimeOfDay(14); // Returns 'midday'
+ * const timeOfDay2 = getTimeOfDay(21); // Returns 'night'
+ * ```
  */
 export function getTimeOfDay(hour: number): TimeOfDay {
   if (hour >= 6 && hour < 10) {
@@ -79,9 +133,21 @@ export function getTimeOfDay(hour: number): TimeOfDay {
 }
 
 /**
- * Returns seasonal adjustments for band recommendations based on the month.
+ * Returns seasonal adjustments for band recommendations.
+ *
+ * Applies seasonal propagation adjustments:
+ * - Summer (May-Aug): Boosts 15m/17m for better higher-band propagation
+ * - Winter (Nov-Feb): Boosts 80m/160m for better low-band conditions
+ * - Equinox (Mar-Apr, Sep-Oct): Boosts all bands for best overall conditions
+ *
  * @param month - Month number (1-12)
- * @returns SeasonalAdjustment with bands to adjust and whether to boost or not
+ * @returns SeasonalAdjustment specifying which bands to boost
+ *
+ * @example
+ * ```typescript
+ * const adjustment = getSeasonalAdjustment(7); // July - summer
+ * // Returns { bands: ['15m', '17m'], boost: true }
+ * ```
  */
 export function getSeasonalAdjustment(month: number): SeasonalAdjustment {
   // Summer: May-August (months 5-8)
@@ -110,10 +176,16 @@ export function getSeasonalAdjustment(month: number): SeasonalAdjustment {
 
 /**
  * Applies seasonal adjustments to a band's rating.
+ *
+ * Upgrades the rating by one level if the band is affected by
+ * the current seasonal adjustment (e.g., 'good' becomes 'excellent').
+ *
  * @param rating - Original rating
- * @param band - Band name
+ * @param band - Band name (e.g., '40m', '20m')
  * @param adjustment - Seasonal adjustment configuration
- * @returns Adjusted rating
+ * @returns Adjusted rating (upgraded by one if applicable)
+ *
+ * @internal
  */
 function applySeasonalRating(
   rating: BandRating,
@@ -144,9 +216,24 @@ function applySeasonalRating(
 
 /**
  * Gets band recommendations for a specific date and optional hours.
+ *
+ * Generates band recommendations by combining:
+ * - Time-of-day based recommendations
+ * - Seasonal adjustments
+ * - Configuration-based ratings
+ *
  * @param date - The date to get recommendations for
- * @param hours - Optional array of hours to get recommendations for (defaults to all time slots)
- * @returns Array of BandRecommendations
+ * @param hours - Optional array of hours (0-23) to get recommendations for.
+ *                Defaults to representative hours for each time slot: [7, 12, 17, 22]
+ * @returns Array of BandRecommendations for the specified hours
+ *
+ * @example
+ * ```typescript
+ * const recommendations = getRecommendations(new Date(), [9, 14, 19]);
+ * recommendations.forEach(rec => {
+ *   console.log(`${rec.timeSlot}: ${rec.band} - ${rec.rating}`);
+ * });
+ * ```
  */
 export function getRecommendations(
   date: Date,
@@ -185,9 +272,25 @@ export function getRecommendations(
 }
 
 /**
- * Gets full band conditions for a specific date including all recommendations and disclaimer.
+ * Gets full band conditions for a specific date.
+ *
+ * Returns a complete BandConditions object including:
+ * - Recommendations for all four time slots
+ * - Date-specific seasonal adjustments
+ * - Disclaimer about propagation variability
+ *
  * @param dateString - Date string in YYYY-MM-DD format
  * @returns BandConditions object with all recommendations and disclaimer
+ *
+ * @example
+ * ```typescript
+ * const conditions = getBandConditions('2024-07-15');
+ * console.log(`Date: ${conditions.date}`);
+ * console.log(conditions.disclaimer);
+ * conditions.recommendations.forEach(rec => {
+ *   console.log(`${rec.timeSlot}: ${rec.band} (${rec.rating})`);
+ * });
+ * ```
  */
 export function getBandConditions(dateString: string): BandConditions {
   const date = new Date(dateString + 'T12:00:00Z'); // Add time to avoid timezone issues

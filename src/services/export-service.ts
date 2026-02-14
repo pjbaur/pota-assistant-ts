@@ -1,4 +1,13 @@
-// Export service - exports plans to various formats
+/**
+ * Export service - exports activation plans to various formats.
+ *
+ * Supports exporting plans to:
+ * - Markdown: Human-readable format with tables and checkboxes
+ * - Text: Plain text format for simple viewing or printing
+ * - JSON: Machine-readable format for integration with other tools
+ *
+ * @module services/export-service
+ */
 
 import type {
   PlanWithPark,
@@ -11,6 +20,9 @@ import { format } from 'date-fns';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
+/**
+ * Options for plan export.
+ */
 export interface ExportOptions {
   format: 'markdown' | 'text' | 'json';
   outputPath: string;
@@ -19,7 +31,30 @@ export interface ExportOptions {
 }
 
 /**
- * Export plan to specified format
+ * Exports a plan to the specified format and file path.
+ *
+ * Creates the output directory if it doesn't exist, then writes
+ * the formatted plan content to the specified file.
+ *
+ * @param plan - The plan with park data to export
+ * @param options - Export options including format and output path
+ * @returns Object with success status, output path, and optional error message
+ *
+ * @example
+ * ```typescript
+ * const result = exportPlan(planWithPark, {
+ *   format: 'markdown',
+ *   outputPath: './exports/activation-plan.md',
+ *   callsign: 'W1AW',
+ *   gridSquare: 'FN31pr'
+ * });
+ *
+ * if (result.success) {
+ *   console.log(`Exported to: ${result.path}`);
+ * } else {
+ *   console.error(`Export failed: ${result.error}`);
+ * }
+ * ```
  */
 export function exportPlan(
   plan: PlanWithPark,
@@ -62,7 +97,22 @@ export function exportPlan(
 }
 
 /**
- * Format plan as Markdown
+ * Formats a plan as Markdown.
+ *
+ * Creates a richly formatted Markdown document including:
+ * - Park information with location and grid square
+ * - Activation details (date, time, duration)
+ * - Weather forecast in a table
+ * - Band recommendations in a table
+ * - Equipment checklist with checkboxes
+ * - Operator notes
+ *
+ * @param plan - The plan with park data to format
+ * @param callsign - Optional operator callsign for footer
+ * @param gridSquare - Optional operator grid square for footer
+ * @returns Formatted Markdown string
+ *
+ * @internal
  */
 function formatMarkdown(
   plan: PlanWithPark,
@@ -170,7 +220,18 @@ function formatMarkdown(
 }
 
 /**
- * Format plan as plain text
+ * Formats a plan as plain text.
+ *
+ * Creates a monospace-formatted plain text document suitable for
+ * terminal display or simple text editors. Uses ASCII art headers
+ * and simple formatting without Markdown syntax.
+ *
+ * @param plan - The plan with park data to format
+ * @param callsign - Optional operator callsign for footer
+ * @param gridSquare - Optional operator grid square for footer
+ * @returns Formatted plain text string
+ *
+ * @internal
  */
 function formatText(
   plan: PlanWithPark,
@@ -268,7 +329,18 @@ function formatText(
 }
 
 /**
- * Format plan as JSON
+ * Formats a plan as JSON.
+ *
+ * Creates a structured JSON object suitable for programmatic use
+ * or integration with other tools. Includes all plan data in a
+ * clean, typed structure.
+ *
+ * @param plan - The plan with park data to format
+ * @param callsign - Optional operator callsign
+ * @param gridSquare - Optional operator grid square
+ * @returns Formatted JSON string (pretty-printed)
+ *
+ * @internal
  */
 function formatJson(
   plan: PlanWithPark,
@@ -318,7 +390,14 @@ function formatJson(
   return JSON.stringify(obj, null, 2);
 }
 
-// Helper functions
+/**
+ * Parses cached weather data from JSON string.
+ *
+ * @param cache - JSON string of weather data or null
+ * @returns Parsed WeatherForecast object or null if parsing fails
+ *
+ * @internal
+ */
 function parseWeather(cache: string | null): WeatherForecast | null {
   if (!cache) return null;
   try {
@@ -328,6 +407,14 @@ function parseWeather(cache: string | null): WeatherForecast | null {
   }
 }
 
+/**
+ * Parses cached band conditions from JSON string.
+ *
+ * @param cache - JSON string of band data or null
+ * @returns Parsed BandConditions object or null if parsing fails
+ *
+ * @internal
+ */
 function parseBands(cache: string | null): BandConditions | null {
   if (!cache) return null;
   try {
@@ -337,6 +424,14 @@ function parseBands(cache: string | null): BandConditions | null {
   }
 }
 
+/**
+ * Groups equipment items by their type.
+ *
+ * @param items - Array of equipment items
+ * @returns Record mapping type names to arrays of items
+ *
+ * @internal
+ */
 function groupItemsByType(
   items: EquipmentPreset['items']
 ): Record<string, EquipmentPreset['items']> {
@@ -350,6 +445,14 @@ function groupItemsByType(
   return grouped;
 }
 
+/**
+ * Capitalizes the first letter of a string.
+ *
+ * @param type - String to capitalize
+ * @returns String with first letter uppercase
+ *
+ * @internal
+ */
 function capitalizeType(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }

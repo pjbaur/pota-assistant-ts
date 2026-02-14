@@ -1,14 +1,26 @@
-// POTA.app API HTTP client
+/**
+ * POTA.app API HTTP client
+ *
+ * Provides functions to interact with the Parks on the Air API for fetching
+ * park information, activation data, and other POTA resources.
+ *
+ * @module api/pota-client
+ */
 
 import type { Result } from '../types/index.js';
 import { AppError } from '../types/index.js';
 
-// API configuration
+/** Base URL for the POTA API */
 const POTATO_API_BASE_URL = 'https://api.pota.app';
-const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+
+/** Request timeout in milliseconds (30 seconds) */
+const REQUEST_TIMEOUT_MS = 30000;
 
 /**
- * Raw park data as returned by the POTA API
+ * Raw park data as returned by the POTA API.
+ *
+ * Represents the structure of park data returned directly from api.pota.app
+ * before any transformation or normalization.
  */
 export interface ParkApiData {
   reference: string;
@@ -26,9 +38,28 @@ export interface ParkApiData {
 }
 
 /**
- * Network error for API failures
+ * Network error for API failures.
+ *
+ * Thrown when HTTP requests to the POTA API fail due to network issues,
+ * timeouts, or non-successful HTTP status codes.
+ *
+ * @extends Error
+ *
+ * @example
+ * ```typescript
+ * if (result.error instanceof NetworkError) {
+ *   console.log(`Status code: ${result.error.statusCode}`);
+ * }
+ * ```
  */
 export class NetworkError extends Error {
+  /**
+   * Creates a new NetworkError.
+   *
+   * @param message - Human-readable error message
+   * @param statusCode - HTTP status code if available (e.g., 404, 500)
+   * @param originalError - The underlying error that caused this failure
+   */
   constructor(
     message: string,
     public readonly statusCode?: number,
@@ -40,7 +71,12 @@ export class NetworkError extends Error {
 }
 
 /**
- * Create a timeout signal for fetch requests
+ * Creates an AbortSignal that triggers after a specified timeout.
+ *
+ * @param timeoutMs - Timeout duration in milliseconds
+ * @returns An AbortSignal that will abort after the timeout
+ *
+ * @internal
  */
 function createTimeoutSignal(timeoutMs: number): AbortSignal {
   const controller = new AbortController();
@@ -49,7 +85,19 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal {
 }
 
 /**
- * Make a fetch request with timeout and error handling
+ * Makes a fetch request with timeout and comprehensive error handling.
+ *
+ * Wraps the native fetch API with:
+ * - Configurable timeout using AbortController
+ * - JSON response parsing
+ * - Error normalization into NetworkError or AppError
+ *
+ * @typeParam T - Expected type of the response data
+ * @param url - Full URL to fetch
+ * @param options - Optional fetch options (headers, method, etc.)
+ * @returns A Result containing the parsed JSON data or an error
+ *
+ * @internal
  */
 async function fetchWithTimeout<T>(
   url: string,
@@ -113,7 +161,23 @@ async function fetchWithTimeout<T>(
 }
 
 /**
- * Fetch all parks from the POTA API
+ * Fetches all parks from the POTA API.
+ *
+ * Retrieves the complete park database from api.pota.app/parks.
+ * This can be a large response (thousands of parks) and should be
+ * cached locally after retrieval.
+ *
+ * @returns A Result containing an array of all parks or a NetworkError
+ *
+ * @example
+ * ```typescript
+ * const result = await fetchAllParks();
+ * if (result.success) {
+ *   console.log(`Fetched ${result.data.length} parks`);
+ * } else {
+ *   console.error(`Failed: ${result.error.message}`);
+ * }
+ * ```
  */
 export async function fetchAllParks(): Promise<Result<ParkApiData[]>> {
   const url = `${POTATO_API_BASE_URL}/parks`;
@@ -121,7 +185,21 @@ export async function fetchAllParks(): Promise<Result<ParkApiData[]>> {
 }
 
 /**
- * Fetch a single park by its POTA reference
+ * Fetches a single park by its POTA reference.
+ *
+ * Looks up a specific park using its unique reference identifier
+ * (e.g., "K-0039" for Yellowstone National Park).
+ *
+ * @param ref - The park reference ID (will be normalized to uppercase)
+ * @returns A Result containing the park data, null if not found, or an error
+ *
+ * @example
+ * ```typescript
+ * const result = await fetchParkByReference('k-0039');
+ * if (result.success && result.data) {
+ *   console.log(`Park: ${result.data.name}`);
+ * }
+ * ```
  */
 export async function fetchParkByReference(
   ref: string
@@ -144,7 +222,19 @@ export async function fetchParkByReference(
 }
 
 /**
- * Fetch parks by entity ID (country/entity)
+ * Fetches parks by entity ID (country/entity).
+ *
+ * Retrieves all parks associated with a specific entity, such as
+ * a country or administrative region.
+ *
+ * @param entityId - The POTA entity ID (numeric identifier)
+ * @returns A Result containing an array of parks for the entity or an error
+ *
+ * @example
+ * ```typescript
+ * // Fetch all parks in a specific entity
+ * const result = await fetchParksByEntity(291); // Example entity ID
+ * ```
  */
 export async function fetchParksByEntity(
   entityId: number
@@ -154,7 +244,22 @@ export async function fetchParksByEntity(
 }
 
 /**
- * Check if the POTA API is reachable
+ * Checks if the POTA API is reachable.
+ *
+ * Performs a lightweight HEAD request to the API health endpoint
+ * to verify connectivity without transferring significant data.
+ *
+ * @returns A Result containing true if the API is reachable, false otherwise.
+ *          Note: This function never returns success: false - it always returns
+ *          success: true with a boolean indicating reachability.
+ *
+ * @example
+ * ```typescript
+ * const result = await checkApiHealth();
+ * if (result.success && result.data) {
+ *   console.log('POTA API is online');
+ * }
+ * ```
  */
 export async function checkApiHealth(): Promise<Result<boolean>> {
   const url = `${POTATO_API_BASE_URL}/health`;

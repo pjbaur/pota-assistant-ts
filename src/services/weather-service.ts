@@ -1,4 +1,14 @@
-// Weather service - coordinates weather data fetching and caching
+/**
+ * Weather service - coordinates weather data fetching and caching.
+ *
+ * This service layer handles:
+ * - Weather forecast fetching from Open-Meteo API
+ * - Local caching with configurable TTL (default: 1 hour)
+ * - Fallback to stale cache when API is unavailable
+ * - WMO weather code interpretation
+ *
+ * @module services/weather-service
+ */
 
 import { fetchForecast, type OpenMeteoResponse } from '../api/weather-client.js';
 import * as weatherCache from '../data/repositories/weather-cache-repository.js';
@@ -9,12 +19,16 @@ import type {
 } from '../types/index.js';
 import { AppError } from '../types/index.js';
 
-// Cache TTL in hours (1 hour)
+/** Cache time-to-live in hours (1 hour) */
 const CACHE_TTL_HOURS = 1;
 
 /**
- * WMO weather code to description mapping
- * Based on WMO Code Table 4677 (simplified)
+ * WMO weather code to human-readable description mapping.
+ *
+ * Based on WMO Code Table 4677 (simplified). These codes are standard
+ * international weather codes used by meteorological services worldwide.
+ *
+ * @see https://open-meteo.com/en/docs
  */
 const WMO_CODE_DESCRIPTIONS: Record<number, string> = {
   0: 'Clear sky',
@@ -48,17 +62,35 @@ const WMO_CODE_DESCRIPTIONS: Record<number, string> = {
 };
 
 /**
- * Get a human-readable description for a WMO weather code
+ * Gets a human-readable description for a WMO weather code.
+ *
+ * Converts numeric weather codes from the Open-Meteo API to
+ * descriptive strings like "Clear sky" or "Thunderstorm".
  *
  * @param code - WMO weather code (0-99)
  * @returns Human-readable weather description
+ *
+ * @example
+ * ```typescript
+ * const desc = getWeatherCodeDescription(95);
+ * console.log(desc); // "Thunderstorm"
+ * ```
  */
 export function getWeatherCodeDescription(code: number): string {
   return WMO_CODE_DESCRIPTIONS[code] ?? `Unknown weather code: ${code}`;
 }
 
 /**
- * Convert wind direction degrees to cardinal direction
+ * Converts wind direction degrees to cardinal direction.
+ *
+ * Maps 0-360 degrees to 16 cardinal directions (N, NNE, NE, etc.).
+ * Note: Open-Meteo daily data doesn't include wind direction, so
+ * this is currently a placeholder for future enhancement.
+ *
+ * @param degrees - Wind direction in degrees (0-360)
+ * @returns Cardinal direction string (e.g., "N", "NE", "SSW")
+ *
+ * @internal
  */
 function degreesToCardinal(degrees: number): string {
   // Open-Meteo doesn't provide wind direction in the current params
@@ -70,10 +102,22 @@ function degreesToCardinal(degrees: number): string {
 }
 
 /**
- * Normalize raw Open-Meteo response to our WeatherForecast type
+ * Normalizes raw Open-Meteo response to application WeatherForecast type.
+ *
+ * Transforms the API response arrays into a structured forecast object
+ * with individual DailyForecast entries for each day.
  *
  * @param raw - Raw Open-Meteo API response
- * @returns Normalized WeatherForecast object
+ * @returns Normalized WeatherForecast object with daily forecasts
+ *
+ * @example
+ * ```typescript
+ * const apiResponse = await fetchForecast(lat, lon);
+ * if (apiResponse.success) {
+ *   const forecast = normalizeWeatherData(apiResponse.data);
+ *   console.log(`Forecast for ${forecast.forecasts.length} days`);
+ * }
+ * ```
  */
 export function normalizeWeatherData(raw: OpenMeteoResponse): WeatherForecast {
   const daily = raw.daily;
@@ -106,17 +150,32 @@ export function normalizeWeatherData(raw: OpenMeteoResponse): WeatherForecast {
 }
 
 /**
- * Get weather forecast for a location and date
+ * Gets weather forecast for a specific location and date.
  *
- * This function:
- * 1. Checks the cache first (1-hour TTL)
+ * Implements a cache-first strategy:
+ * 1. Checks the local cache first (1-hour TTL)
  * 2. Fetches from API if cache miss or expired
  * 3. Returns cached data with stale warning if API fails
  *
- * @param lat - Latitude coordinate
- * @param lon - Longitude coordinate
+ * This ensures the application can function offline with
+ * potentially stale data when connectivity is unavailable.
+ *
+ * @param lat - Latitude coordinate (-90 to 90)
+ * @param lon - Longitude coordinate (-180 to 180)
  * @param date - Target date in YYYY-MM-DD format
- * @returns Result containing WeatherForecast or an error
+ * @returns A Result containing the WeatherForecast or an error
+ *
+ * @example
+ * ```typescript
+ * const result = await getForecast(44.4280, -110.5885, '2024-07-15');
+ * if (result.success) {
+ *   const day = result.data.forecasts[0];
+ *   console.log(`High: ${day.highTemp}°F, Conditions: ${day.conditions}`);
+ *   if (result.data.staleWarning) {
+ *     console.warn(result.data.staleWarning);
+ *   }
+ * }
+ * ```
  */
 export async function getForecast(
   lat: number,
@@ -236,11 +295,25 @@ export async function getForecast(
 }
 
 /**
- * Get multi-day weather forecast for a location
+ * Gets a multi-day weather forecast for a location.
  *
- * @param lat - Latitude coordinate
- * @param lon - Longitude coordinate
- * @returns Result containing WeatherForecast with multiple days or an error
+ * Fetches the full 7-day forecast from Open-Meteo and caches each
+ * day's forecast individually for future lookups. Falls back to
+ * cached data if the API is unavailable.
+ *
+ * @param lat - Latitude coordinate (-90 to 90)
+ * @param lon - Longitude coordinate (-180 to 180)
+ * @returns A Result containing the WeatherForecast with multiple days or an error
+ *
+ * @example
+ * ```typescript
+ * const result = await getMultiDayForecast(44.4280, -110.5885);
+ * if (result.success) {
+ *   result.data.forecasts.forEach(day => {
+ *     console.log(`${day.date}: ${day.conditions}, High ${day.highTemp}°F`);
+ *   });
+ * }
+ * ```
  */
 export async function getMultiDayForecast(
   lat: number,
@@ -309,9 +382,20 @@ export async function getMultiDayForecast(
 }
 
 /**
- * Clean up expired cache entries
+ * Cleans up expired cache entries.
  *
- * @returns Result containing count of deleted entries
+ * Removes weather cache entries that have passed their expiration time.
+ * Should be called periodically to prevent unbounded cache growth.
+ *
+ * @returns A Result containing the count of deleted entries
+ *
+ * @example
+ * ```typescript
+ * const result = cleanupCache();
+ * if (result.success) {
+ *   console.log(`Removed ${result.data.count} expired entries`);
+ * }
+ * ```
  */
 export function cleanupCache(): Result<{ count: number }> {
   return weatherCache.deleteExpired();

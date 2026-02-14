@@ -1,4 +1,15 @@
-// Plan repository - handles all activation plan database operations
+/**
+ * Plan repository - handles all activation plan database operations.
+ *
+ * Provides data access layer for activation plans including:
+ * - CRUD operations for plans
+ * - Plan queries with park data joins
+ * - Filtering by status and date
+ *
+ * Plans store cached weather and band data for offline access.
+ *
+ * @module data/repositories/plan-repository
+ */
 
 import type Database from 'better-sqlite3';
 import { getDatabase } from '../database.js';
@@ -13,7 +24,9 @@ import type {
 } from '../../types/index.js';
 import { AppError } from '../../types/index.js';
 
-// Query options for finding plans
+/**
+ * Options for querying plans.
+ */
 export interface PlanFindOptions {
   status?: PlanStatus;
   upcoming?: boolean;
@@ -21,7 +34,12 @@ export interface PlanFindOptions {
 }
 
 /**
- * Convert a database row to a Plan object
+ * Converts a database row to a Plan object.
+ *
+ * @param row - Raw database row
+ * @returns Typed Plan object
+ *
+ * @internal
  */
 function rowToPlan(row: Record<string, unknown>): Plan {
   return {
@@ -41,7 +59,16 @@ function rowToPlan(row: Record<string, unknown>): Plan {
 }
 
 /**
- * Convert joined plan+park rows to PlanWithPark
+ * Converts joined plan and park rows to a PlanWithPark object.
+ *
+ * Combines data from both tables into a single object with
+ * the park nested inside the plan.
+ *
+ * @param planRow - Raw plan database row
+ * @param parkRow - Raw park database row
+ * @returns PlanWithPark object with nested park data
+ *
+ * @internal
  */
 function rowsToPlanWithPark(planRow: Record<string, unknown>, parkRow: Record<string, unknown>): PlanWithPark {
   const park: Park = {
@@ -67,7 +94,24 @@ function rowsToPlanWithPark(planRow: Record<string, unknown>, parkRow: Record<st
 }
 
 /**
- * Create a new activation plan
+ * Creates a new activation plan.
+ *
+ * Looks up the park by reference and creates a plan record
+ * with status 'draft'. Weather and band data can be pre-cached.
+ *
+ * @param planData - Plan creation input including park reference
+ * @returns A Result containing the created Plan
+ *
+ * @example
+ * ```typescript
+ * const result = create({
+ *   parkReference: 'K-0039',
+ *   plannedDate: '2024-07-15',
+ *   plannedTime: '09:00',
+ *   durationHours: 4,
+ *   presetId: 'qrp-portable'
+ * });
+ * ```
  */
 export function create(planData: PlanCreateInput): Result<Plan> {
   const dbResult = getDatabase();
@@ -131,7 +175,18 @@ export function create(planData: PlanCreateInput): Result<Plan> {
 }
 
 /**
- * Find a plan by its ID
+ * Finds a plan by its ID.
+ *
+ * @param id - The plan ID
+ * @returns A Result containing the Plan if found, null if not found
+ *
+ * @example
+ * ```typescript
+ * const result = findById(1);
+ * if (result.success && result.data) {
+ *   console.log(`Plan for: ${result.data.plannedDate}`);
+ * }
+ * ```
  */
 export function findById(id: number): Result<Plan | null> {
   const dbResult = getDatabase();
@@ -162,7 +217,22 @@ export function findById(id: number): Result<Plan | null> {
 }
 
 /**
- * Find a plan by ID with park information
+ * Finds a plan by ID with park information included.
+ *
+ * Joins the plan with its associated park to return
+ * complete information for display or export.
+ *
+ * @param id - The plan ID
+ * @returns A Result containing the PlanWithPark if found, null if not found
+ *
+ * @example
+ * ```typescript
+ * const result = findByIdWithPark(1);
+ * if (result.success && result.data) {
+ *   console.log(`Park: ${result.data.park.name}`);
+ *   console.log(`Date: ${result.data.plannedDate}`);
+ * }
+ * ```
  */
 export function findByIdWithPark(id: number): Result<PlanWithPark | null> {
   const dbResult = getDatabase();
@@ -217,7 +287,22 @@ export function findByIdWithPark(id: number): Result<PlanWithPark | null> {
 }
 
 /**
- * Find all plans with optional filtering
+ * Finds all plans with optional filtering.
+ *
+ * Supports filtering by status and date. Results are ordered
+ * by planned date and time.
+ *
+ * @param options - Query options
+ * @param options.status - Filter by plan status
+ * @param options.upcoming - Only include future plans
+ * @param options.limit - Maximum results (default: 50)
+ * @returns A Result containing an array of Plans
+ *
+ * @example
+ * ```typescript
+ * // Get all upcoming finalized plans
+ * const result = findAll({ status: 'finalized', upcoming: true });
+ * ```
  */
 export function findAll(options: PlanFindOptions = {}): Result<Plan[]> {
   const dbResult = getDatabase();
@@ -260,7 +345,23 @@ export function findAll(options: PlanFindOptions = {}): Result<Plan[]> {
 }
 
 /**
- * Find all plans with park information
+ * Finds all plans with park information included.
+ *
+ * Joins plans with their associated parks for complete
+ * display information. Useful for listing plans in the UI.
+ *
+ * @param options - Query options (same as findAll)
+ * @returns A Result containing an array of PlanWithPark objects
+ *
+ * @example
+ * ```typescript
+ * const result = findAllWithPark({ upcoming: true, limit: 10 });
+ * if (result.success) {
+ *   result.data.forEach(plan => {
+ *     console.log(`${plan.park.reference}: ${plan.park.name}`);
+ *   });
+ * }
+ * ```
  */
 export function findAllWithPark(options: PlanFindOptions = {}): Result<PlanWithPark[]> {
   const dbResult = getDatabase();
@@ -348,7 +449,22 @@ export function findAllWithPark(options: PlanFindOptions = {}): Result<PlanWithP
 }
 
 /**
- * Update an existing plan
+ * Updates an existing plan.
+ *
+ * Only provided fields are updated; others remain unchanged.
+ * The updatedAt timestamp is automatically set.
+ *
+ * @param id - The plan ID to update
+ * @param planData - Partial plan data to update
+ * @returns A Result containing the updated Plan
+ *
+ * @example
+ * ```typescript
+ * const result = update(1, {
+ *   status: 'finalized',
+ *   plannedTime: '08:00'
+ * });
+ * ```
  */
 export function update(id: number, planData: PlanUpdateInput): Result<Plan> {
   const dbResult = getDatabase();
@@ -438,7 +554,18 @@ export function update(id: number, planData: PlanUpdateInput): Result<Plan> {
 }
 
 /**
- * Delete a plan
+ * Deletes a plan by ID.
+ *
+ * @param id - The plan ID to delete
+ * @returns A Result containing true if deleted, or an error if not found
+ *
+ * @example
+ * ```typescript
+ * const result = deletePlan(1);
+ * if (result.success) {
+ *   console.log('Plan deleted');
+ * }
+ * ```
  */
 export function deletePlan(id: number): Result<boolean> {
   const dbResult = getDatabase();
@@ -470,7 +597,17 @@ export function deletePlan(id: number): Result<boolean> {
 }
 
 /**
- * Get total count of plans
+ * Gets the total count of plans in the database.
+ *
+ * @returns A Result containing the plan count
+ *
+ * @example
+ * ```typescript
+ * const result = count();
+ * if (result.success) {
+ *   console.log(`${result.data} plans in database`);
+ * }
+ * ```
  */
 export function count(): Result<number> {
   const dbResult = getDatabase();

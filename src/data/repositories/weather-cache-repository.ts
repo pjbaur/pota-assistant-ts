@@ -1,10 +1,25 @@
-// Weather cache repository - handles weather forecast caching
+/**
+ * Weather cache repository - handles weather forecast caching.
+ *
+ * Provides data access layer for weather cache entries including:
+ * - Storing and retrieving forecast data by location and date
+ * - Cache expiration tracking
+ * - Range queries for multi-day forecasts
+ * - Cleanup of expired entries
+ *
+ * Coordinates are rounded to 4 decimal places (~11m precision)
+ * for consistent cache lookups.
+ *
+ * @module data/repositories/weather-cache-repository
+ */
 
 import { getDatabase } from '../database.js';
 import type { DailyForecast, Result } from '../../types/index.js';
 import { AppError } from '../../types/index.js';
 
-// Cache entry structure
+/**
+ * Represents a cached weather forecast entry.
+ */
 export interface WeatherCacheEntry {
   id: number;
   latitude: number;
@@ -15,7 +30,9 @@ export interface WeatherCacheEntry {
   expiresAt: Date;
 }
 
-// Input type for setting cache
+/**
+ * Input type for storing weather cache entries.
+ */
 export interface WeatherCacheInput {
   latitude: number;
   longitude: number;
@@ -24,7 +41,12 @@ export interface WeatherCacheInput {
 }
 
 /**
- * Convert a database row to a WeatherCacheEntry
+ * Converts a database row to a WeatherCacheEntry object.
+ *
+ * @param row - Raw database row
+ * @returns Typed WeatherCacheEntry object
+ *
+ * @internal
  */
 function rowToCacheEntry(row: Record<string, unknown>): WeatherCacheEntry {
   return {
@@ -39,7 +61,22 @@ function rowToCacheEntry(row: Record<string, unknown>): WeatherCacheEntry {
 }
 
 /**
- * Get cached weather data for a location and date
+ * Gets cached weather data for a location and date.
+ *
+ * Coordinates are rounded to 4 decimal places for consistent lookups.
+ *
+ * @param latitude - Latitude coordinate (-90 to 90)
+ * @param longitude - Longitude coordinate (-180 to 180)
+ * @param date - Target date in YYYY-MM-DD format
+ * @returns A Result containing the cache entry or null if not found
+ *
+ * @example
+ * ```typescript
+ * const result = get(44.4280, -110.5885, '2024-07-15');
+ * if (result.success && result.data) {
+ *   const forecast = JSON.parse(result.data.data) as DailyForecast;
+ * }
+ * ```
  */
 export function get(
   latitude: number,
@@ -82,7 +119,22 @@ export function get(
 }
 
 /**
- * Store weather data in the cache
+ * Stores weather data in the cache.
+ *
+ * Uses INSERT ... ON CONFLICT to atomically create or update.
+ * The expiresAt timestamp is set based on the TTL.
+ *
+ * @param latitude - Latitude coordinate (-90 to 90)
+ * @param longitude - Longitude coordinate (-180 to 180)
+ * @param date - Target date in YYYY-MM-DD format
+ * @param data - Daily forecast data to cache
+ * @param ttlHours - Time-to-live in hours (default: 1)
+ * @returns A Result containing the created cache entry
+ *
+ * @example
+ * ```typescript
+ * const result = set(44.4280, -110.5885, '2024-07-15', forecast, 1);
+ * ```
  */
 export function set(
   latitude: number,
@@ -136,7 +188,20 @@ export function set(
 }
 
 /**
- * Check if cached weather data is expired or missing
+ * Checks if cached weather data is expired or missing.
+ *
+ * @param latitude - Latitude coordinate (-90 to 90)
+ * @param longitude - Longitude coordinate (-180 to 180)
+ * @param date - Target date in YYYY-MM-DD format
+ * @returns A Result containing true if expired or missing, false if valid
+ *
+ * @example
+ * ```typescript
+ * const result = isExpired(44.4280, -110.5885, '2024-07-15');
+ * if (result.success && result.data) {
+ *   // Need to fetch fresh data
+ * }
+ * ```
  */
 export function isExpired(
   latitude: number,
@@ -183,7 +248,26 @@ export function isExpired(
 }
 
 /**
- * Get all cached forecasts for a location (useful for multi-day forecasts)
+ * Gets all cached forecasts for a location within a date range.
+ *
+ * Useful for retrieving multi-day forecasts without making
+ * individual calls for each day.
+ *
+ * @param latitude - Latitude coordinate (-90 to 90)
+ * @param longitude - Longitude coordinate (-180 to 180)
+ * @param startDate - Start date in YYYY-MM-DD format
+ * @param endDate - End date in YYYY-MM-DD format
+ * @returns A Result containing an array of cache entries
+ *
+ * @example
+ * ```typescript
+ * const result = getRange(44.4280, -110.5885, '2024-07-15', '2024-07-21');
+ * if (result.success) {
+ *   result.data.forEach(entry => {
+ *     console.log(`Forecast for ${entry.forecastDate}`);
+ *   });
+ * }
+ * ```
  */
 export function getRange(
   latitude: number,
@@ -226,7 +310,20 @@ export function getRange(
 }
 
 /**
- * Delete expired cache entries (cleanup utility)
+ * Deletes expired cache entries.
+ *
+ * Cleanup utility to remove cache entries that have passed
+ * their expiration time. Should be called periodically.
+ *
+ * @returns A Result containing the count of deleted entries
+ *
+ * @example
+ * ```typescript
+ * const result = deleteExpired();
+ * if (result.success) {
+ *   console.log(`Cleaned up ${result.data.count} expired entries`);
+ * }
+ * ```
  */
 export function deleteExpired(): Result<{ count: number }> {
   const dbResult = getDatabase();

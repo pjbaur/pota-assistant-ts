@@ -1,7 +1,25 @@
-// Hardcoded equipment presets for MVP
+/**
+ * Equipment presets for POTA activations.
+ *
+ * Provides predefined equipment configurations for different
+ * activation styles:
+ * - QRP Portable: Low-power hiking/portable operation
+ * - Standard Portable: Medium-power field operation
+ * - Mobile/High Power: Vehicle-based or high-power operation
+ *
+ * @module services/equipment-presets
+ */
 
 import type { EquipmentPreset, PresetId, EquipmentItem } from '../types/index.js';
 
+/**
+ * Built-in equipment presets indexed by preset ID.
+ *
+ * Each preset includes:
+ * - Descriptive name and description
+ * - Maximum power output
+ * - Complete equipment checklist organized by type
+ */
 export const EQUIPMENT_PRESETS: Record<PresetId, EquipmentPreset> = {
   'qrp-portable': {
     id: 'qrp-portable',
@@ -58,21 +76,51 @@ export const EQUIPMENT_PRESETS: Record<PresetId, EquipmentPreset> = {
 };
 
 /**
- * Get all available presets
+ * Gets all available equipment presets.
+ *
+ * @returns Array of all EquipmentPreset objects
+ *
+ * @example
+ * ```typescript
+ * const presets = getAllPresets();
+ * presets.forEach(preset => {
+ *   console.log(`${preset.name}: ${preset.description}`);
+ * });
+ * ```
  */
 export function getAllPresets(): EquipmentPreset[] {
   return Object.values(EQUIPMENT_PRESETS);
 }
 
 /**
- * Get a preset by ID
+ * Gets a preset by its ID.
+ *
+ * @param id - The preset ID ('qrp-portable', 'standard-portable', or 'mobile-high-power')
+ * @returns The EquipmentPreset if found, undefined otherwise
+ *
+ * @example
+ * ```typescript
+ * const preset = getPresetById('qrp-portable');
+ * if (preset) {
+ *   console.log(`${preset.name}: ${preset.maxPower}W max`);
+ * }
+ * ```
  */
 export function getPresetById(id: PresetId): EquipmentPreset | undefined {
   return EQUIPMENT_PRESETS[id];
 }
 
 /**
- * Get preset display name
+ * Gets a human-readable display name for a preset.
+ *
+ * @param id - The preset ID or null for no preset
+ * @returns The preset's display name, 'None' if id is null, or the id if not found
+ *
+ * @example
+ * ```typescript
+ * getPresetDisplayName('qrp-portable'); // 'QRP Portable'
+ * getPresetDisplayName(null); // 'None'
+ * ```
  */
 export function getPresetDisplayName(id: PresetId | null): string {
   if (!id) return 'None';
@@ -81,14 +129,45 @@ export function getPresetDisplayName(id: PresetId | null): string {
 }
 
 /**
- * Check if a preset ID is valid
+ * Checks if a string is a valid preset ID.
+ *
+ * Type guard that validates whether a string matches one of the
+ * predefined preset IDs.
+ *
+ * @param id - String to validate
+ * @returns True if the ID is a valid PresetId
+ *
+ * @example
+ * ```typescript
+ * if (isValidPresetId(userInput)) {
+ *   const preset = getPresetById(userInput);
+ * }
+ * ```
  */
 export function isValidPresetId(id: string): id is PresetId {
   return id in EQUIPMENT_PRESETS;
 }
 
 /**
- * Get preset options for CLI prompts
+ * Gets preset options formatted for CLI selection prompts.
+ *
+ * Returns an array of options suitable for use with inquirer or
+ * similar prompt libraries, each containing:
+ * - value: The preset ID for programmatic use
+ * - label: Human-readable preset name
+ * - description: Brief description including max power
+ *
+ * @returns Array of preset options for CLI prompts
+ *
+ * @example
+ * ```typescript
+ * const options = getPresetOptions();
+ * // [
+ * //   { value: 'qrp-portable', label: 'QRP Portable', description: '...' },
+ * //   { value: 'standard-portable', label: 'Standard Portable', description: '...' },
+ * //   ...
+ * // ]
+ * ```
  */
 export function getPresetOptions(): { value: PresetId; label: string; description: string }[] {
   return getAllPresets().map((preset) => ({
