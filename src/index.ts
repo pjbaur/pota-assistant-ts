@@ -9,6 +9,7 @@ import { registerParkCommand } from './commands/park-command.js';
 import { registerPlanCommand } from './commands/plan-command.js';
 import { registerSyncCommand } from './commands/sync-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
+import { registerImportCommand } from './commands/import-command.js';
 import { startTUI } from './tui/index.js';
 
 const VERSION = '2.0.0';
@@ -68,6 +69,7 @@ async function main(): Promise<void> {
   registerPlanCommand(program, config, logger);
   registerSyncCommand(program, config, logger);
   registerConfigCommand(program, config, logger);
+  registerImportCommand(program, config, logger);
 
   // Parse arguments
   program.parse(process.argv);
