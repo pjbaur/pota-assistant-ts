@@ -14,3 +14,4 @@ dist/
 .pota/
 coverage/
 *.tgz
+data/
