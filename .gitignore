@@ -1,8 +1,16 @@
+# ai stuff
+.claude/
+
+# environment
+.env
+
+# Apple
+.DS_Store
+
+
 node_modules/
 dist/
 *.log
-.DS_Store
-.env
 .pota/
 coverage/
 *.tgz
