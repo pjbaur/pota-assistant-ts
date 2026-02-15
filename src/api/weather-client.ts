@@ -47,6 +47,9 @@ const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
 /** Request timeout in milliseconds (30 seconds) */
 const REQUEST_TIMEOUT_MS = 30000;
 
+/** User agent string for API requests */
+const USER_AGENT = 'POTA-Activation-Planner/2.0.0 (https://github.com/pjbaur/pota-assistant-ts)';
+
 /**
  * Daily weather parameters to request from Open-Meteo.
  *
@@ -177,6 +180,7 @@ export async function fetchForecast(
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
+        'User-Agent': USER_AGENT,
       },
     });
 

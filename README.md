@@ -437,16 +437,23 @@ npm test -- --coverage
 | [POTA.app API](https://api.pota.app) | Park database and information | No |
 | [Open-Meteo](https://open-meteo.com) | Weather forecasts | No |
 
-All APIs are free and require no authentication. API keys are never needed or stored.
+All APIs are free. Open-Meteo requires no authentication. The POTA API may require authentication for some endpoints - see troubleshooting below.
 
 ## Troubleshooting
 
+### "403 Forbidden" when syncing parks
+
+The POTA API has changed and now requires authentication for the `/parks` endpoint. This is a known issue as of 2026. Options:
+
+1. **Contact POTA Support**: Email help@parksontheair.com to request API access
+2. **Manual Data Entry**: Look up parks on [pota.app](https://pota.app) and use the reference ID directly
+3. **Use Individual Park Lookup**: The `/park/{reference}` endpoint may still work for individual parks
+
 ### "Park not found" after search
 
-The local database may be empty or outdated. Run:
-```bash
-pota sync parks
-```
+The local database may be empty. Due to the POTA API authentication change, you'll need to:
+1. Get the park reference from [pota.app](https://pota.app)
+2. Use it directly: `pota park show K-0039`
 
 ### "Network error" when syncing
 

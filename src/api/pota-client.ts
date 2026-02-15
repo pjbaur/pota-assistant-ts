@@ -16,6 +16,17 @@ const POTATO_API_BASE_URL = 'https://api.pota.app';
 /** Request timeout in milliseconds (30 seconds) */
 const REQUEST_TIMEOUT_MS = 30000;
 
+/** User agent string for API requests */
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+/** Default headers for all API requests */
+const DEFAULT_HEADERS = {
+  Accept: 'application/json',
+  'User-Agent': USER_AGENT,
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+};
+
 /**
  * Raw park data as returned by the POTA API.
  *
@@ -110,7 +121,7 @@ async function fetchWithTimeout<T>(
       ...options,
       signal,
       headers: {
-        Accept: 'application/json',
+        ...DEFAULT_HEADERS,
         ...options.headers,
       },
     });
