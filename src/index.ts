@@ -21,7 +21,36 @@ async function main(): Promise<void> {
   initLogger(config.logging.level, config.logging.file, config.logging.maxSizeMb);
   const logger = getLogger();
 
-  // Create main program
+  // Check if help or version flags are provided
+  const wantsHelp = process.argv.includes('--help') || process.argv.includes('-h');
+  const wantsVersion = process.argv.includes('--version') || process.argv.includes('-V');
+
+  // Check if a subcommand was provided
+  const hasSubcommand = process.argv.length > 2 && !process.argv[2]?.startsWith('-');
+
+  // If no subcommand and no help/version flags, start interactive mode
+  if (!hasSubcommand && !wantsHelp && !wantsVersion) {
+    // Check for first run
+    if (isFirstRun()) {
+      console.log('Welcome to POTA Activation Planner!');
+      console.log('Run "pota config init" to set up your operator profile.\n');
+    }
+
+    // Check for --cli flag
+    const useCli = process.argv.includes('--cli') || process.argv.includes('-c');
+
+    if (useCli) {
+      // Fall back to old REPL
+      const { startRepl } = await import('./repl/index.js');
+      await startRepl(config, logger);
+    } else {
+      // Start TUI
+      await startTUI();
+    }
+    return;
+  }
+
+  // Create main program for CLI commands
   const program = new Command();
 
   program
@@ -32,8 +61,7 @@ async function main(): Promise<void> {
     .option('-q, --quiet', 'Suppress non-essential output', false)
     .option('--no-color', 'Disable colored output', !config.display.color)
     .option('-f, --format <format>', 'Output format (table, json)', 'table')
-    .option('-c, --config <path>', 'Path to config file')
-    .option('--cli', 'Use traditional CLI mode instead of TUI', false);
+    .option('-c, --config <path>', 'Path to config file');
 
   // Register subcommands
   registerParkCommand(program, config, logger);
@@ -43,25 +71,6 @@ async function main(): Promise<void> {
 
   // Parse arguments
   program.parse(process.argv);
-
-  // If no command provided, start interactive TUI (or CLI if --cli flag)
-  const options = program.opts();
-  if (process.argv.length === 2 || (process.argv.length === 3 && process.argv[2]?.startsWith('-'))) {
-    // Check for first run
-    if (isFirstRun()) {
-      console.log('Welcome to POTA Activation Planner!');
-      console.log('Run "pota config init" to set up your operator profile.\n');
-    }
-
-    // Start TUI by default, or CLI mode if --cli flag
-    if (options.cli) {
-      // Fall back to old REPL (lazy import to avoid issues)
-      const { startRepl } = await import('./repl/index.js');
-      await startRepl(config, logger);
-    } else {
-      await startTUI();
-    }
-  }
 }
 
 main().catch((error) => {
