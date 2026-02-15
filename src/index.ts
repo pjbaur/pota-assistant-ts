@@ -9,9 +9,9 @@ import { registerParkCommand } from './commands/park-command.js';
 import { registerPlanCommand } from './commands/plan-command.js';
 import { registerSyncCommand } from './commands/sync-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
-import { startRepl } from './repl/index.js';
+import { startTUI } from './tui/index.js';
 
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
 
 async function main(): Promise<void> {
   // Load configuration
@@ -32,7 +32,8 @@ async function main(): Promise<void> {
     .option('-q, --quiet', 'Suppress non-essential output', false)
     .option('--no-color', 'Disable colored output', !config.display.color)
     .option('-f, --format <format>', 'Output format (table, json)', 'table')
-    .option('-c, --config <path>', 'Path to config file');
+    .option('-c, --config <path>', 'Path to config file')
+    .option('--cli', 'Use traditional CLI mode instead of TUI', false);
 
   // Register subcommands
   registerParkCommand(program, config, logger);
@@ -43,7 +44,8 @@ async function main(): Promise<void> {
   // Parse arguments
   program.parse(process.argv);
 
-  // If no command provided, start interactive REPL
+  // If no command provided, start interactive TUI (or CLI if --cli flag)
+  const options = program.opts();
   if (process.argv.length === 2 || (process.argv.length === 3 && process.argv[2]?.startsWith('-'))) {
     // Check for first run
     if (isFirstRun()) {
@@ -51,7 +53,14 @@ async function main(): Promise<void> {
       console.log('Run "pota config init" to set up your operator profile.\n');
     }
 
-    await startRepl(config, logger);
+    // Start TUI by default, or CLI mode if --cli flag
+    if (options.cli) {
+      // Fall back to old REPL (lazy import to avoid issues)
+      const { startRepl } = await import('./repl/index.js');
+      await startRepl(config, logger);
+    } else {
+      await startTUI();
+    }
   }
 }
 

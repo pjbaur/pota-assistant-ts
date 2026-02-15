@@ -9,8 +9,8 @@ A CLI tool for amateur radio operators to plan Parks on the Air (POTA) activatio
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
-  - [Interactive Mode (REPL)](#interactive-mode-repl)
-  - [Direct Commands](#direct-commands)
+  - [Interactive Mode (TUI)](#interactive-mode-tui)
+  - [Classic CLI Mode](#classic-cli-mode)
 - [Command Reference](#command-reference)
   - [Park Commands](#park-commands)
   - [Plan Commands](#plan-commands)
@@ -26,13 +26,14 @@ A CLI tool for amateur radio operators to plan Parks on the Air (POTA) activatio
 
 ## Features
 
+- **Interactive TUI**: Modern split-pane terminal interface with keyboard navigation
 - **Park Discovery**: Search and browse POTA parks by name, reference, or location
 - **Activation Planning**: Create detailed activation plans with date, time, and equipment
 - **Weather Forecasts**: View weather conditions for your planned activation location
 - **Band Recommendations**: Get time-of-day and seasonal band condition recommendations
 - **Equipment Presets**: Choose from pre-configured equipment loadouts (QRP, portable, mobile)
 - **Offline Capable**: Works offline after initial park data sync
-- **Interactive REPL**: Explore parks and plans with an interactive shell
+- **Command Palette**: Quick access to all commands with Cmd/Ctrl+K
 - **Multiple Output Formats**: Table or JSON output for scripting and automation
 - **Plan Export**: Export plans to Markdown, text, or JSON files
 
@@ -71,67 +72,95 @@ npx pota-assistant
 ## Quick Start
 
 ```bash
-# Start interactive mode
+# Start interactive TUI mode
 pota
 
 # Or run directly
 node dist/index.js
 
-# Sync park database (first time)
+# First time: sync park database
 pota sync parks
 
-# Search for a park
+# In the TUI:
+# - Use j/k or arrows to navigate parks
+# - Press Enter to select a park
+# - Press ? for keyboard shortcuts
+# - Press Cmd/Ctrl+K for command palette
+
+# Direct CLI commands also work:
 pota park search yellowstone
-
-# Create an activation plan
 pota plan create K-0039 --date 2024-06-15
-
-# View your plans
 pota plan list
 ```
 
 ## Usage
 
-### Interactive Mode (REPL)
+### Interactive Mode (TUI)
 
-Running `pota` without arguments starts an interactive shell:
+Running `pota` without arguments starts an interactive terminal UI:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  POTA Activation Planner v1.0.0                                   │
-│  Type /help for commands, /quit to exit                         │
-└─────────────────────────────────────────────────────────────────┘
-
-pota> search yellowstone
-pota> /select K-0039
-pota> /weather
-pota> /bands
-pota> /plan
-pota> /quit
+┌──────────────────────────────────────────────────────────────────────────┐
+│ POTA Activation Planner v2.0                         [?-help]            │
+├────────────────────┬─────────────────────────────────────────────────────┤
+│ PARKS              │ DASHBOARD                                          │
+│   ▸ K-0039 Yellow..│                                                    │
+│     K-4561 El Morro│ Current: K-0039 - Yellowstone NP                   │
+│     K-1234 Sandy.. │ Grid: DN44xk | 44.4N, -110.7W                      │
+│                    │                                                    │
+│ PLANS              │ Today's Bands: 40m Good, 20m Fair                  │
+│   ▸ 2024-06-15 K-..│ Weather: Sunny 72F                                 │
+│     2024-06-22 K-..│                                                    │
+│                    │                                                    │
+│ [Tab: switch]      │ [d:dashboard w:weather b:bands]                    │
+├────────────────────┴─────────────────────────────────────────────────────┤
+│ > Type a command...                                                      │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### REPL Slash Commands
+#### Keyboard Shortcuts
 
-| Command | Description |
-|---------|-------------|
-| `/help`, `/?` | Show available commands |
-| `/select <ref>` | Set current park context (e.g., `/select K-0039`) |
-| `/plan` | Create a plan for the currently selected park |
-| `/weather` | Show weather for the current park |
-| `/bands` | Show band recommendations for today |
-| `/context` | Display current session context |
-| `/history` | Show command history |
-| `/clear` | Clear the terminal screen |
-| `/quit`, `/exit`, `/q` | Exit the REPL |
+| Key | Action |
+|-----|--------|
+| `Cmd/Ctrl+K` | Open command palette |
+| `?` | Show help overlay |
+| `Tab` | Cycle focus (sidebar → main → input) |
+| `j/k` or `↑/↓` | Navigate lists |
+| `Enter` | Select item |
+| `d` | Show dashboard |
+| `w` | Focus weather |
+| `b` | Focus bands |
+| `Esc` | Close overlay / return to sidebar |
+| `q` | Quit (when in sidebar) |
 
-#### REPL Direct Commands
+#### Command Palette Commands
+
+Press `Cmd/Ctrl+K` to open the command palette, then type to search:
+
+- `Search Parks` - Search parks by name
+- `Go to Dashboard` - Show the main dashboard
+- `View Plans` - Switch to plans list
+- `View Parks` - Switch to parks list
+- `Sync Park Data` - Download latest park data
+- `Show Help` - Display keyboard shortcuts
+- `Quit` - Exit the application
+
+#### Command Bar
+
+Type commands in the input bar at the bottom:
 
 ```bash
-pota> search <query>       # Search parks by name or reference
-pota> show [ref|plan]      # Show park or plan details
-pota> plan <ref> <date>    # Create a new activation plan
-pota> list plans           # List all saved plans
-pota> sync parks           # Sync park database from POTA API
+> search yellowstone    # Search for parks
+> help                  # Show help
+> quit                  # Exit
+```
+
+### Classic CLI Mode
+
+If you prefer the traditional REPL, use the `--cli` flag:
+
+```bash
+pota --cli
 ```
 
 ### Direct Commands
@@ -367,10 +396,15 @@ src/
 ├── data/             # Database and repositories
 │   ├── migrations/   # Schema migrations
 │   └── repositories/ # Data access layer
-├── repl/             # Interactive REPL implementation
+├── repl/             # Classic REPL implementation
 ├── services/         # Business logic services
+├── tui/              # Terminal UI (Ink + React)
+│   ├── components/   # UI components (layout, sidebar, main, overlay)
+│   ├── hooks/        # React hooks for data fetching
+│   ├── store/        # Zustand state management
+│   └── types/        # TUI-specific types
 ├── types/            # TypeScript type definitions
-├── ui/               # Terminal UI components
+├── ui/               # Terminal UI utilities (formatters, colors)
 └── utils/            # Utility functions
 tests/                # Test files mirroring src/ structure
 ```
